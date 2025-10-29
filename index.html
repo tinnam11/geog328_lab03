@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8">
+    <title>US National Parks Explorer</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+        }
+
+        #container {
+            position: relative;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #side-panel {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            bottom: 20px;
+            width: 420px;
+            background-color: rgba(255, 255, 255, 0.95);
+            overflow-y: scroll;
+            padding: 25px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            z-index: 1;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #2c5f2d;
+            font-size: 26px;
+            border-bottom: 3px solid #97bc62;
+            padding-bottom: 10px;
+        }
+
+        button {
+            margin-bottom: 15px;
+            padding: 12px 24px;
+            background-color: #2c5f2d;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            background-color: #1e4620;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        table {
+            border-collapse: collapse;
+            border-spacing: 0;
+            width: 100%;
+            border: 2px solid #97bc62;
+            background-color: white;
+            font-size: 14px;
+        }
+
+        th {
+            background-color: #2c5f2d;
+            color: white;
+            text-align: left;
+            padding: 14px;
+            font-weight: bold;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            text-align: left;
+            padding: 12px 14px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8faf8;
+        }
+
+        tr:hover {
+            background-color: #e8f5e9;
+            transition: background-color 0.2s;
+        }
+
+        @media screen and (max-width: 1024px) {
+            #side-panel {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main id="container">
+        <div id="map"></div>
+        <div id="side-panel">
+            <h2>🏞️ US National Parks</h2>
+            <button id="sort-button">Sort by Visitors</button>
+            <table>
+                <tr>
+                    <th>Park Name</th>
+                    <th>State</th>
+                    <th>Visitors (2023)</th>
+                </tr>
+            </table>
+        </div>
+    </main>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoidGlubmFtIiwiYSI6ImNtaDI4eGlqNzBuZWwyam9kOWprMnFzMjQifQ.jBLwT0atBnQc0gx_eWrYow';
+
+        let map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/outdoors-v12',
+            zoom: 3.5,
+            center: [-98.5, 39.8]
+        });
+
+        async function geojsonFetch() {
+            let parks, states, table;
+
+            // National Parks GeoJSON data
+            parks = {
+                "type": "FeatureCollection",
+                "features": [
+                    {"type": "Feature", "properties": {"name": "Yosemite", "state": "CA", "visitors": 3667550}, "geometry": {"type": "Point", "coordinates": [-119.5383, 37.8651]}},
+                    {"type": "Feature", "properties": {"name": "Grand Teton", "state": "WY", "visitors": 2646043}, "geometry": {"type": "Point", "coordinates": [-110.8008, 43.7904]}},
+                    {"type": "Feature", "properties": {"name": "Great Smoky Mountains", "state": "TN/NC", "visitors": 13297647}, "geometry": {"type": "Point", "coordinates": [-83.5102, 35.6117]}},
+                    {"type": "Feature", "properties": {"name": "Arches", "state": "UT", "visitors": 1812155}, "geometry": {"type": "Point", "coordinates": [-109.6229, 38.7331]}},
+                    {"type": "Feature", "properties": {"name": "Rocky Mountain", "state": "CO", "visitors": 4115837}, "geometry": {"type": "Point", "coordinates": [-105.6836, 40.3428]}},
+                    {"type": "Feature", "properties": {"name": "Olympic", "state": "WA", "visitors": 2718925}, "geometry": {"type": "Point", "coordinates": [-123.4994, 47.8021]}},
+                    {"type": "Feature", "properties": {"name": "Shenandoah", "state": "VA", "visitors": 1592312}, "geometry": {"type": "Point", "coordinates": [-78.4694, 38.4754]}},
+                    {"type": "Feature", "properties": {"name": "Grand Canyon", "state": "AZ", "visitors": 4733705}, "geometry": {"type": "Point", "coordinates": [-112.1401, 36.0544]}},
+                    {"type": "Feature", "properties": {"name": "Glacier", "state": "MT", "visitors": 3081656}, "geometry": {"type": "Point", "coordinates": [-113.7870, 48.7596]}},
+                    {"type": "Feature", "properties": {"name": "Acadia", "state": "ME", "visitors": 3879890}, "geometry": {"type": "Point", "coordinates": [-68.2733, 44.3386]}},
+                    {"type": "Feature", "properties": {"name": "Bryce Canyon", "state": "UT", "visitors": 2461269}, "geometry": {"type": "Point", "coordinates": [-112.1871, 37.5930]}},
+                    {"type": "Feature", "properties": {"name": "Joshua Tree", "state": "CA", "visitors": 3270404}, "geometry": {"type": "Point", "coordinates": [-115.9010, 33.8734]}},
+                    {"type": "Feature", "properties": {"name": "Yellowstone", "state": "WY", "visitors": 3290242}, "geometry": {"type": "Point", "coordinates": [-110.5885, 44.4280]}},
+                    {"type": "Feature", "properties": {"name": "Zion", "state": "UT", "visitors": 4692417}, "geometry": {"type": "Point", "coordinates": [-113.0263, 37.2982]}},
+                    {"type": "Feature", "properties": {"name": "Mount Rainier", "state": "WA", "visitors": 1501621}, "geometry": {"type": "Point", "coordinates": [-121.7269, 46.8800]}}
+                ]
+            };
+
+            // US Regions GeoJSON data
+            states = {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"name": "Western Region", "parks": 8},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[
+                                [-124.7, 49.0], [-111.0, 49.0], [-111.0, 45.0], [-104.0, 45.0],
+                                [-104.0, 41.0], [-109.0, 41.0], [-109.0, 37.0], [-114.0, 37.0],
+                                [-114.0, 32.5], [-117.1, 32.5], [-120.0, 34.0], [-124.4, 42.0],
+                                [-124.7, 49.0]
+                            ]]
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": {"name": "Southwest Region", "parks": 5},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[
+                                [-109.0, 41.0], [-102.0, 41.0], [-102.0, 37.0], [-103.0, 37.0],
+                                [-103.0, 32.0], [-106.6, 32.0], [-108.2, 31.3], [-111.0, 31.3],
+                                [-114.7, 32.7], [-114.0, 37.0], [-109.0, 37.0], [-109.0, 41.0]
+                            ]]
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": {"name": "Eastern Region", "parks": 3},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[
+                                [-83.0, 49.0], [-67.0, 49.0], [-67.0, 44.0], [-70.0, 43.0],
+                                [-75.0, 42.0], [-79.5, 42.3], [-80.5, 36.5], [-84.3, 34.9],
+                                [-87.5, 35.0], [-90.0, 36.0], [-89.0, 39.0], [-83.0, 41.6],
+                                [-83.0, 49.0]
+                            ]]
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": {"name": "Mountain Region", "parks": 4},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[
+                                [-111.0, 49.0], [-104.0, 49.0], [-104.0, 45.0], [-96.0, 45.5],
+                                [-96.0, 40.0], [-102.0, 40.0], [-102.0, 37.0], [-109.0, 37.0],
+                                [-109.0, 41.0], [-111.0, 41.0], [-111.0, 49.0]
+                            ]]
+                        }
+                    }
+                ]
+            };
+
+            map.on('load', function loadingData() {
+                // states/regions layer
+                map.addSource('regions', {
+                    type: 'geojson',
+                    data: states
+                });
+
+                map.addLayer({
+                    'id': 'regions-fill',
+                    'type': 'fill',
+                    'source': 'regions',
+                    'paint': {
+                        'fill-color': '#97bc62',
+                        'fill-opacity': 0.4
+                    }
+                });
+
+                map.addLayer({
+                    'id': 'regions-outline',
+                    'type': 'line',
+                    'source': 'regions',
+                    'paint': {
+                        'line-color': '#2c5f2d',
+                        'line-width': 2.5
+                    }
+                });
+
+                // parks layer
+                map.addSource('parks', {
+                    type: 'geojson',
+                    data: parks
+                });
+
+                map.addLayer({
+                    'id': 'parks-layer',
+                    'type': 'circle',
+                    'source': 'parks',
+                    'paint': {
+                        'circle-radius': [
+                            'interpolate',
+                            ['linear'],
+                            ['get', 'visitors'],
+                            1500000, 8,
+                            5000000, 14,
+                            13000000, 22
+                        ],
+                        'circle-stroke-width': 3,
+                        'circle-color': '#d84315',
+                        'circle-stroke-color': '#ffffff',
+                        'circle-opacity': 0.85
+                    }
+                });
+
+                // park labels
+                map.addLayer({
+                    'id': 'parks-labels',
+                    'type': 'symbol',
+                    'source': 'parks',
+                    'layout': {
+                        'text-field': ['get', 'name'],
+                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                        'text-size': 11,
+                        'text-offset': [0, 1.5],
+                        'text-anchor': 'top'
+                    },
+                    'paint': {
+                        'text-color': '#1a1a1a',
+                        'text-halo-color': '#ffffff',
+                        'text-halo-width': 2
+                    }
+                });
+            });
+            table = document.getElementsByTagName("table")[0];
+            let row, cell1, cell2, cell3;
+            for (let i = 0; i < parks.features.length; i++) {
+                row = table.insertRow(-1);
+                cell1 = row.insertCell(0);
+                cell2 = row.insertCell(1);
+                cell3 = row.insertCell(2);
+                cell1.innerHTML = parks.features[i].properties.name;
+                cell2.innerHTML = parks.features[i].properties.state;
+                cell3.innerHTML = parks.features[i].properties.visitors.toLocaleString();
+            }
+            let btn = document.getElementById("sort-button");
+            console.log("Button found:", btn);
+            btn.addEventListener('click', sortTable);
+
+            function sortTable(e) {
+                let table, rows, switching, i, x, y, shouldSwitch;
+                table = document.getElementsByTagName("table")[0];
+                switching = true;
+
+                while (switching) {
+                switching = false;
+                rows = table.rows;
+                for (i = 1; i < (rows.length - 1); i++) {
+                    shouldSwitch = false;
+                    x = parseFloat(rows[i].getElementsByTagName("td")[2].innerHTML.replace(/,/g, ''));
+                    y = parseFloat(rows[i + 1].getElementsByTagName("td")[2].innerHTML.replace(/,/g, ''));
+                    console.log("Comparing:", x, "vs", y);
+                    if (x < y) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                }
+                if (shouldSwitch) {
+                    rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                    switching = true;
+                }
+                }
+            }
+        }
+        geojsonFetch();
+    </script>
+</body>
+</html>
